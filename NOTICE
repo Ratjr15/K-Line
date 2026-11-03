@@ -1,0 +1,23 @@
+CTX700 K-Line Dash
+Copyright 2026 <Ratjr15>
+ 
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+This product is an independent, unofficial, reverse-engineered diagnostic
+tool. It is not affiliated with, endorsed by, or supported by Honda Motor
+Co., Ltd. "Honda" and "CTX" are trademarks of their respective owner and
+are used here only to describe compatibility. For read-only diagnostic use;
+use at your own risk.
+ 
+Protocol and data-table references (facts, independently reimplemented):
+  - gonzos.net CTX-OBD project  (https://gonzos.net/projects/ctx-obd/)
+  - andreibaw/Honda_K-Line_KWP2000
+  - roccofz1/HondaECU
+ 
+Builds against (not redistributed here; see each project's own license):
+  - NimBLE-Arduino            (Apache-2.0)
+  - Arduino-ESP32 core        (mixed: LGPL-2.1 / Apache-2.0 / others)
