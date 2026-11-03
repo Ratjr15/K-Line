@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- Copyright 2026 <Ratjr15> -->
+<!-- Copyright 2026 <YOUR NAME OR GITHUB HANDLE> -->
 <!-- Licensed under the Apache License, Version 2.0. See the LICENSE file. -->
 <html lang="en">
 <head>
@@ -120,7 +120,8 @@ async function connect(){
   try{
     setStatus('requesting…');
     device=await navigator.bluetooth.requestDevice({
-      filters:[{namePrefix:'CTX700'}],
+      // Match by service UUID (reliable) OR by name. Multiple filter objects = OR.
+      filters:[{services:[NUS_SVC]},{namePrefix:'CTX700'}],
       optionalServices:[NUS_SVC]
     });
     device.addEventListener('gattserverdisconnected',onDrop);
