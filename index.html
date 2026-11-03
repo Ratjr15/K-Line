@@ -1,0 +1,215 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Copyright 2026 <Ratjr15> -->
+<!-- Licensed under the Apache License, Version 2.0. See the LICENSE file. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CTX700 Dash</title>
+<style>
+/* Deliberate single dark theme — a riding dash read in sunlight and at night. */
+:root{
+  --bg:#0c0d10; --panel:#16181d; --panel-2:#1d2026; --line:#2a2e36;
+  --fg:#f2f4f7; --muted:#8b93a1;
+  --accent:#36c7f0; --good:#3ad29f; --warn:#f2b63d; --crit:#f2564b;
+  --font-d:"Space Grotesk",system-ui,-apple-system,sans-serif;
+  --font-m:ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+.app{max-width:900px;margin:0 auto;padding:14px 14px 28px;
+  padding-top:calc(14px + env(safe-area-inset-top,0px))}
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.bar h1{font-family:var(--font-d);font-size:1.05rem;font-weight:600;margin:0;letter-spacing:-.01em}
+.bar .sp{flex:1}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.dot.on{background:var(--good);box-shadow:0 0 10px var(--good)}
+.dot.stale{background:var(--warn);box-shadow:0 0 10px var(--warn)}
+button{font-family:var(--font-d);font-weight:600;font-size:.9rem;
+  background:var(--accent);color:#04141a;border:0;border-radius:10px;
+  padding:9px 16px;cursor:pointer}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+button:active{transform:translateY(1px)}
+.status{font-family:var(--font-m);font-size:.78rem;color:var(--muted)}
+
+/* RPM strip */
+.rpm{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
+.rpm .top{display:flex;align-items:baseline;gap:10px}
+.rpm .val{font-family:var(--font-d);font-size:clamp(3rem,16vw,5rem);font-weight:700;
+  line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.rpm .unit{font-family:var(--font-m);font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.track{margin-top:12px;height:14px;border-radius:7px;background:var(--panel-2);overflow:hidden;position:relative}
+.track .fill{height:100%;width:0;background:var(--accent);border-radius:7px;transition:width .12s linear}
+.track .redline{position:absolute;top:0;bottom:0;right:0;width:14%;background:rgba(242,86,75,.18);border-left:2px solid var(--crit)}
+
+/* tile grid */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-width:0}
+.tile .lbl{font-family:var(--font-m);font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.tile .big{font-family:var(--font-d);font-weight:700;font-size:clamp(1.8rem,7vw,2.6rem);
+  line-height:1.05;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tile .big small{font-size:.42em;color:var(--muted);font-weight:600;margin-left:3px}
+.tile.state .big{font-size:clamp(1.4rem,6vw,2rem)}
+.big.good{color:var(--good)} .big.warn{color:var(--warn)} .big.crit{color:var(--crit)}
+.span2{grid-column:span 2}
+@media(min-width:560px){.span2{grid-column:span 1}}
+
+.hint{margin-top:18px;font-family:var(--font-m);font-size:.74rem;color:var(--muted);line-height:1.6}
+.hint code{background:var(--panel-2);padding:1px 5px;border-radius:4px}
+.err{color:var(--crit)}
+.dim{opacity:.4;transition:opacity .3s}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <span class="dot" id="dot"></span>
+    <h1>CTX700</h1>
+    <span class="sp"></span>
+    <span class="status" id="stat">disconnected</span>
+    <button id="btn">Connect</button>
+  </div>
+
+  <div class="rpm" id="rpmCard">
+    <div class="top"><span class="val" id="rpm">----</span><span class="unit">rpm</span></div>
+    <div class="track"><div class="fill" id="rpmFill"></div><div class="redline"></div></div>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="tile"><div class="lbl">Speed</div><div class="big" id="spd">--<small>mph</small></div></div>
+    <div class="tile"><div class="lbl">Coolant</div><div class="big" id="ect">--<small>°F</small></div></div>
+    <div class="tile state"><div class="lbl">Gear</div><div class="big" id="gear">--</div></div>
+    <div class="tile"><div class="lbl">Throttle</div><div class="big" id="tps">--<small>%</small></div></div>
+    <div class="tile"><div class="lbl">Battery</div><div class="big" id="bat">--<small>V</small></div></div>
+    <div class="tile"><div class="lbl">MAP</div><div class="big" id="map">--<small>kPa</small></div></div>
+  </div>
+
+  <div class="hint" id="hint">
+    Tap <b>Connect</b> and pick <code>CTX700-Dash</code>. Needs Chrome on Android (Web Bluetooth).
+    Keep this page open while riding; it auto-reconnects if the link drops.
+  </div>
+</div>
+
+<script>
+const NUS_SVC = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_TX  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';  // ESP notifies on this
+const RPM_MAX = 7000;        // CTX700 redline ~6500
+const STALE_MS = 2000;
+
+let device=null, txChar=null, lastRx=0;
+const $=id=>document.getElementById(id);
+const dec=new TextDecoder();
+let buf='';
+
+function setStatus(t,cls){ $('stat').textContent=t; }
+function dot(state){ const d=$('dot'); d.className='dot'+(state?' '+state:''); }
+
+async function connect(){
+  if(!navigator.bluetooth){
+    $('hint').innerHTML='<span class="err">This browser has no Web Bluetooth. Use Chrome on Android, served over https.</span>';
+    return;
+  }
+  try{
+    setStatus('requesting…');
+    device=await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'CTX700'}],
+      optionalServices:[NUS_SVC]
+    });
+    device.addEventListener('gattserverdisconnected',onDrop);
+    await openGatt();
+  }catch(e){ setStatus('cancelled'); }
+}
+
+async function openGatt(){
+  setStatus('connecting…');
+  const server=await device.gatt.connect();
+  const svc=await server.getPrimaryService(NUS_SVC);
+  txChar=await svc.getCharacteristic(NUS_TX);
+  await txChar.startNotifications();
+  txChar.addEventListener('characteristicvaluechanged',onData);
+  setStatus('connected'); dot('on'); $('btn').textContent='Disconnect';
+  $('btn').onclick=disconnect;
+}
+
+function disconnect(){
+  if(device&&device.gatt.connected) device.gatt.disconnect();
+}
+
+function onDrop(){
+  dot(''); setStatus('reconnecting…'); $('btn').textContent='Connect'; $('btn').onclick=connect;
+  // auto-retry a few times; bike key-on brings it back
+  let tries=0;
+  const t=setInterval(async()=>{
+    if(device&&device.gatt.connected){clearInterval(t);return;}
+    tries++;
+    try{ await openGatt(); clearInterval(t); }catch(e){ if(tries>30){clearInterval(t);setStatus('disconnected');} }
+  },2000);
+}
+
+function onData(ev){
+  lastRx=Date.now();
+  buf+=dec.decode(ev.target.value);
+  let nl;
+  while((nl=buf.indexOf('\n'))>=0){
+    const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1);
+    if(line.startsWith('D,')) render(line);
+  }
+}
+
+function render(line){
+  // D,rpm,ectC,iatC,tps,mapkPa,batt,speedKmh,stand
+  const p=line.split(',');
+  if(p.length<9) return;
+  const rpm=+p[1], ectC=+p[2], tps=+p[4], mapk=+p[5], batt=+p[6], kmh=+p[7], stand=+p[8];
+
+  $('rpm').textContent=rpm;
+  $('rpmFill').style.width=Math.min(100,rpm/RPM_MAX*100)+'%';
+  $('rpmFill').style.background = rpm>=6000?'var(--crit)':rpm>=4500?'var(--warn)':'var(--accent)';
+
+  const mph=Math.round(kmh/1.609);
+  $('spd').innerHTML=mph+'<small>mph</small>';
+
+  const f=Math.round(ectC*9/5+32);
+  const ectEl=$('ect');
+  ectEl.innerHTML=f+'<small>°F</small>';
+  ectEl.className='big'+(f>=230?' crit':f>=215?' warn':'');
+
+  const g=$('gear');
+  if(stand===3){ g.textContent='STAND'; g.className='big crit'; }
+  else if(stand===1){ g.textContent='N'; g.className='big good'; }
+  else if(stand===0){ g.textContent='GEAR'; g.className='big'; }
+  else { g.textContent='--'; g.className='big'; }
+
+  $('tps').innerHTML=tps+'<small>%</small>';
+
+  const b=$('bat');
+  b.innerHTML=batt.toFixed(1)+'<small>V</small>';
+  b.className='big'+(batt<12.0?' warn':batt>15.0?' crit':'');
+
+  $('map').innerHTML=mapk+'<small>kPa</small>';
+
+  dot('on'); setStatus('live');
+  $('grid').classList.remove('dim'); $('rpmCard').classList.remove('dim');
+}
+
+// stale watchdog — dim the readouts if no frames arrive
+setInterval(()=>{
+  if(!device||!device.gatt.connected) return;
+  if(Date.now()-lastRx>STALE_MS){
+    dot('stale'); setStatus('waiting for ECU…');
+    $('grid').classList.add('dim'); $('rpmCard').classList.add('dim');
+  }
+},500);
+
+$('btn').onclick=connect;
+</script>
+</body>
+</html>
